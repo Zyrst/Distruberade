@@ -57,7 +57,8 @@ public class ServerConnection
    	// * receive response message from server
    	// * unmarshal response message to determine whether connection was successful
    	// * return false if connection failed (e.g., if user name was taken)    
-		byte[] buf = new byte[name.length() + 2];
+		
+    	byte[] buf = new byte[name.length() + 2];
 		//Add a one so we have a bit first to manipulate
 		String clientName = 1 + "2" + name;
 		buf = clientName.getBytes();
@@ -130,8 +131,6 @@ public class ServerConnection
     }
 
     public void sendChatMessage(String message) {
-    	m_ack = false;
-    	
     	// TODO: 
 		// * marshal message if necessary
 		// * send a chat message to the server
@@ -174,7 +173,7 @@ public class ServerConnection
     		
     	else
     	{
-    		message = 2 + "1" + m_name + ": " + message;
+    		message = 2 + "1" + m_name + " : " + message;
     		buf = message.getBytes();
     		buf[0]  = 2;
     		buf[1]  = (byte) message.length();	
@@ -183,37 +182,12 @@ public class ServerConnection
     	DatagramPacket packet = new DatagramPacket(buf, buf.length,
 				m_serverAddress,m_serverPort);
     	sendMessage(packet);
-    
- /*   while(m_ack == false)
-    {
-    	failure = generator.nextDouble();
-	    if (failure > TRANSMISSION_FAILURE_RATE)
-	    {
-	    	DatagramPacket packet = new DatagramPacket(buf, buf.length,
-					m_serverAddress,m_serverPort);
-	    	try 
-			{
-				m_socket.send(packet);
-			} catch (IOException e) {
-				System.err.println("Unable to send message");
-			}
-	    		
-	    }
-	    else{
-	    		// Message got lost
-	    		System.err.println("Lost message");
-	    	}
-	    
-	    try {
-			Thread.sleep(1);
-		} catch (InterruptedException e) {
-			System.err.println("Thread no sleep");
-		}
-	    }*/
+ 
     }
    
     private void sendMessage(DatagramPacket packet)
     {
+    	m_ack = false;
     	Random generator = new Random();
         double failure;	
     	while(m_ack == false)
@@ -247,15 +221,36 @@ public class ServerConnection
     	byte[] returnBuf = new byte[24];
 		String one = 1 + m_name;
 		returnBuf = one.getBytes();
+		//Message type
 		returnBuf[0] = 6;
 		DatagramPacket reply = new DatagramPacket(returnBuf, returnBuf.length,
 				address,port);
-		try {
-			m_socket.send(reply);
-		} catch (IOException e) {
-			System.out.println("Tried sending a reply");
-			return false;
-		}
-		return true;
+		
+		boolean result = false;
+		Random generator = new Random();
+        
+		//So we don't need to ack the ack
+        for(int i = 0; i <= 5; i++)
+        {
+        	double failure = generator.nextDouble();
+	        if (failure > TRANSMISSION_FAILURE_RATE)
+			{
+				try 
+				{
+					m_socket.send(reply);
+					
+				} catch (IOException e) {
+					System.err.println("Unable to send message");
+				}
+				result = true;
+				break;
+			 }
+			else{
+		   		// Message got lost
+				System.err.println("Lost message");
+				result =  false;
+		    	}
+        }
+        return result;
     }
 }

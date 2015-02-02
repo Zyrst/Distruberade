@@ -107,8 +107,9 @@ public class Server {
 				case 2:
 				{
 					String message = new String(buf, 2, buf[1]);
+					String[] name = message.split(" ", 2);
 					System.out.println("Broadcast message");
-					boolean reply = replyMessage(packet.getAddress(), packet.getPort());
+					boolean reply = replyMessage(packet.getAddress(), packet.getPort(), name[0]);
 					if(reply == true)
 						broadcast(message);
 						
@@ -126,7 +127,7 @@ public class Server {
 					String[] splinter = message.split(" ", 5);
 					String construct = splinter[0] + " " + splinter[1] + " " + splinter[4];
 					String name = splinter[3];
-					boolean reply = replyMessage(packet.getAddress(), packet.getPort());
+					boolean reply = replyMessage(packet.getAddress(), packet.getPort(), name);
 					if(reply == true)
 						sendPrivateMessage(construct, name);
 				}
@@ -157,7 +158,7 @@ public class Server {
 						}
 					}
 					String msg = "Current users: " + name;;
-					boolean reply = replyMessage(packet.getAddress(), packet.getPort());
+					boolean reply = replyMessage(packet.getAddress(), packet.getPort(),sender);
 					if(reply == true)
 						sendPrivateMessage(msg,sender);
 					break;
@@ -173,11 +174,11 @@ public class Server {
 					    c = itr.next();
 					    if(c.hasName(name))
 					    {
-					    	m_connectedClients.remove(c);
 					    	System.out.println("Removed user");
 					    	String msg = name + " has left";
-					    	boolean reply = replyMessage(packet.getAddress(), packet.getPort());
+					    	boolean reply = replyMessage(packet.getAddress(), packet.getPort(), name);
 							if(reply == true)
+								m_connectedClients.remove(c);
 								broadcast(msg);
 					    	break;
 					    }
@@ -241,7 +242,7 @@ public class Server {
 		return true;
     }
 
-    public void sendPrivateMessage(String message, String name) 
+    public boolean sendPrivateMessage(String message, String name) 
     {
 		ClientConnection c;
 		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
@@ -249,8 +250,10 @@ public class Server {
 		    c = itr.next();
 		    if(c.hasName(name)) {
 		    	c.sendMessage(message, m_socket);
+		    	return true;
 		    }
 		}
+		return false;
     }
 
     public void broadcast(String message)
@@ -261,12 +264,12 @@ public class Server {
 		}
     }
     
-    public boolean replyMessage(InetAddress address, int port)
+    public boolean replyMessage(InetAddress address, int port,String name)
     {
     	//Send an ack that a message was received
-    	byte[] returnBuf = new byte[8];
+    	//byte[] returnBuf = new byte[8];
 		String one = "ack";
-		returnBuf = one.getBytes();
+	/*	returnBuf = one.getBytes();
 		DatagramPacket reply = new DatagramPacket(returnBuf, returnBuf.length,
 				address,port);
 		try {
@@ -277,7 +280,10 @@ public class Server {
 			System.out.println("Tried sending a reply");
 			return false;
 		}
-		return true;
+		return true;*/
+			return sendPrivateMessage(one, name);
+		
+
     }
 }
 
