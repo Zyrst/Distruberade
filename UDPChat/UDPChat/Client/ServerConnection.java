@@ -131,8 +131,7 @@ public class ServerConnection
 
     public void sendChatMessage(String message) {
     	m_ack = false;
-    	Random generator = new Random();
-        double failure;	
+    	
     	// TODO: 
 		// * marshal message if necessary
 		// * send a chat message to the server
@@ -180,8 +179,12 @@ public class ServerConnection
     		buf[0]  = 2;
     		buf[1]  = (byte) message.length();	
 		}
+    	
+    	DatagramPacket packet = new DatagramPacket(buf, buf.length,
+				m_serverAddress,m_serverPort);
+    	sendMessage(packet);
     
-    while(m_ack == false)
+ /*   while(m_ack == false)
     {
     	failure = generator.nextDouble();
 	    if (failure > TRANSMISSION_FAILURE_RATE)
@@ -206,9 +209,39 @@ public class ServerConnection
 		} catch (InterruptedException e) {
 			System.err.println("Thread no sleep");
 		}
-	    }
+	    }*/
     }
    
+    private void sendMessage(DatagramPacket packet)
+    {
+    	Random generator = new Random();
+        double failure;	
+    	while(m_ack == false)
+    	{
+    	    failure = generator.nextDouble();
+    		if (failure > TRANSMISSION_FAILURE_RATE)
+    		{
+    			try 
+    			{
+    				m_socket.send(packet);
+    			} catch (IOException e) {
+    				System.err.println("Unable to send message");
+    			}
+    		    		
+    		 }
+    		else{
+    	   		// Message got lost
+    			System.err.println("Lost message");
+    	    	}
+    		 try {
+    				Thread.sleep(1);
+    			} catch (InterruptedException e) {
+    				System.err.println("Thread no sleep");
+    			}
+    	   }
+    }
+    
+    
     public boolean replyMessage(InetAddress address, int port)
     {
     	byte[] returnBuf = new byte[24];

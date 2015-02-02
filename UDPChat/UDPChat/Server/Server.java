@@ -94,14 +94,10 @@ public class Server {
 						System.out.println("No user with that name"); 
 						
 					}
-					
+				
 					//Return the decision 
-					packet = new DatagramPacket(returnBuf, returnBuf.length,address,port);
-					try{
-						m_socket.send(packet);
-					} catch(IOException e){
-						System.err.println("Not able to send to client");
-					}
+					String msg = returnBuf.toString();
+					sendPrivateMessage(msg,name);
 					
 					broadcast(name + " has joined");
 					break;
@@ -133,7 +129,6 @@ public class Server {
 					boolean reply = replyMessage(packet.getAddress(), packet.getPort());
 					if(reply == true)
 						sendPrivateMessage(construct, name);
-					//splinter[2] is empty, no clue why
 				}
 				
 				//List all the connected users
@@ -144,7 +139,7 @@ public class Server {
 					String sender = new String(buf,2,buf[1]);
 					int i = 0;
 					//List all connected users
-					//Add to string which gets returend
+					//Add to string which gets returned
 					for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();)
 					{
 						c = itr.next();
@@ -276,6 +271,7 @@ public class Server {
 				address,port);
 		try {
 			m_socket.send(reply);
+			//broadcast(one);
 		} catch (IOException e) {
 			//Failed to reply , return false
 			System.out.println("Tried sending a reply");
