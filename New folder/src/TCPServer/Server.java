@@ -1,10 +1,10 @@
-package UDPChat.Server;
+package TCPServer;
 
 //
-// Source file for the server side. 
+//Source file for the server side. 
 //
-// Created by Sanny Syberfeldt
-// Maintained by Marcus Brohede
+//Created by Sanny Syberfeldt
+//Maintained by Marcus Brohede
 //
 
 //Student Simon Hedström(c13simhe)
@@ -17,10 +17,10 @@ import java.util.Iterator;
 
 public class Server {
 	
-    private ArrayList<ClientConnection> m_connectedClients = new ArrayList<ClientConnection>();
-    private DatagramSocket m_socket;
+ private ArrayList<ClientConnection> m_connectedClients = new ArrayList<ClientConnection>();
+ private ServerSocket m_socket;
 
-    public static void main(String[] args){    	
+ public static void main(String[] args){    	
 		if(args.length < 1) {
 		    System.err.println("Usage: java Server portnumber");
 		    System.exit(-1);
@@ -32,29 +32,29 @@ public class Server {
 		    System.err.println("Error: port number must be an integer.");
 		    System.exit(-1);
 		}
-    }
+ }
 
-    private Server(int portNumber) 
-    {
+ private Server(int portNumber) 
+ {
 	// TODO: create a socket, attach it to port based on portNumber, and assign it to m_socket
-    	try {
-			m_socket = new DatagramSocket(portNumber);
-		} catch (SocketException e) {
+ 	try {
+			m_socket = new ServerSocket(portNumber);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
 			System.err.println("Not able to bind socket");
 		}
-    }
+ }
 
-    private void listenForClientMessages() 
-    {
+ private void listenForClientMessages() 
+ {
 		System.out.println("Waiting for client messages... ");
 		Thread thread;
 		do {
-			byte[] buf = new byte[256];
-			DatagramPacket packet = new DatagramPacket(buf, buf.length);
+			
 			
 			try {
-				m_socket.receive(packet);
+				m_socket.accept();
 				
 			} catch (IOException e) {
 				System.err.println("Not able to receive packet");
@@ -127,8 +127,7 @@ public class Server {
 					String[] splinter = message.split(" ", 5);
 					String construct = splinter[0] + " " + splinter[1] + " " + splinter[4];
 					String name = splinter[3];
-					System.out.println();
-					boolean reply = replyMessage(packet.getAddress(), packet.getPort(), splinter[0]);
+					boolean reply = replyMessage(packet.getAddress(), packet.getPort(), name);
 					if(reply == true)
 						sendPrivateMessage(construct, name);
 				}
@@ -206,13 +205,13 @@ public class Server {
 			removeCrashed();
 			
 		} while (true);
-    }
-    
-    //Public function remove a client
-    //Use it with a user client crashed
-    public void removeCrashed()
-    {
-    	ClientConnection c;
+ }
+ 
+ //Public function remove a client
+ //Use it with a user client crashed
+ public void removeCrashed()
+ {
+ 	ClientConnection c;
 		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
 		{
 			
@@ -229,9 +228,9 @@ public class Server {
 		    }
 		   
 		}
-    }
-    public boolean addClient(String name, InetAddress address, int port) 
-    {
+ }
+ public boolean addClient(String name, InetAddress address, int port) 
+ {
 		ClientConnection c;
 		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) {
 		    c = itr.next();
@@ -241,10 +240,10 @@ public class Server {
 		}
 		m_connectedClients.add(new ClientConnection(name, address, port));
 		return true;
-    }
+ }
 
-    public boolean sendPrivateMessage(String message, String name) 
-    {
+ public boolean sendPrivateMessage(String message, String name) 
+ {
 		ClientConnection c;
 		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
 		{
@@ -255,27 +254,27 @@ public class Server {
 		    }
 		}
 		return false;
-    }
+ }
 
-    public void broadcast(String message)
-    {
+ public void broadcast(String message)
+ {
 		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
 		{
 		    itr.next().sendMessage(message, m_socket);
 		}
-    }
-    
-    public boolean replyMessage(InetAddress address, int port,String name)
-    {
-    	//Send an ack that a message was received
-    	//byte[] returnBuf = new byte[8];
+ }
+ 
+ public boolean replyMessage(InetAddress address, int port,String name)
+ {
+ 	//Send an ack that a message was received
+ 	//byte[] returnBuf = new byte[8];
 		String one = "ack";
-		/*returnBuf = one.getBytes();
+	/*	returnBuf = one.getBytes();
 		DatagramPacket reply = new DatagramPacket(returnBuf, returnBuf.length,
 				address,port);
 		try {
-			//m_socket.send(reply);
-			broadcast(one);
+			m_socket.send(reply);
+			//broadcast(one);
 		} catch (IOException e) {
 			//Failed to reply , return false
 			System.out.println("Tried sending a reply");
@@ -285,6 +284,5 @@ public class Server {
 			return sendPrivateMessage(one, name);
 		
 
-    }
+ }
 }
-
