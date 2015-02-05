@@ -167,6 +167,8 @@ public class ServerConnection
 	    			buf[0] = 5;
 	    			buf[1] = (byte) m_name.length();	
 	    			break;
+	    		default :
+	    			return;
 	    		
     		}
     	}
