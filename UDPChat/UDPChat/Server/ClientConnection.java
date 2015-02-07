@@ -49,16 +49,18 @@ public class ClientConnection {
 		Random generator = new Random();
     	double failure;
     	
+    	//Try to send the message to client 5 times
     	for(int i = 0; i <= 5; i++)
     	{
     		failure = generator.nextDouble();
     		triesConnecet += 1;
 		   	if (failure > TRANSMISSION_FAILURE_RATE){
-		    	// TODO: send a message to this client using socket.
+		    	
 		    	byte[] buf = new byte[message.length()];
 		    	buf = message.getBytes();
 		    	DatagramPacket packet = new DatagramPacket(buf, buf.length, 
 		    											m_address, m_port);
+		    	//Only send if we don't have an ack
 		    	if(m_ack == false)
 			    	try {
 			    		

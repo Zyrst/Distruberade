@@ -221,6 +221,8 @@ public class Server {
 		    String name = c.getName();
 		    if(i > 10 && c.hasName(name) == true)
 		    {
+		    	//If tridconnect is over 10 than remove 
+		    	//This might be wrong and a person should be tagged DC instead
 		    	System.out.println("Tried to remove a crashed client");
 		    	m_connectedClients.remove(c);
 		    	String msg = name + " disconnected";
@@ -268,23 +270,8 @@ public class Server {
     public boolean replyMessage(InetAddress address, int port,String name)
     {
     	//Send an ack that a message was received
-    	//byte[] returnBuf = new byte[8];
 		String one = "ack";
-		/*returnBuf = one.getBytes();
-		DatagramPacket reply = new DatagramPacket(returnBuf, returnBuf.length,
-				address,port);
-		try {
-			//m_socket.send(reply);
-			broadcast(one);
-		} catch (IOException e) {
-			//Failed to reply , return false
-			System.out.println("Tried sending a reply");
-			return false;
-		}
-		return true;*/
-			return sendPrivateMessage(one, name);
-		
-
+		return sendPrivateMessage(one, name);
     }
 }
 

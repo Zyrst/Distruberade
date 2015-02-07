@@ -85,6 +85,7 @@ public class ServerConnection
 	    	System.err.println("Not able to receive message");
 	    }
 	    
+	    //If [0] == 0 already a user 
 	    if(returnBuf[0] == 0)
 	    {
 	    	boolean replyB = replyMessage(m_serverAddress, m_serverPort);
@@ -113,16 +114,19 @@ public class ServerConnection
 		}
     	
     	String received = new String(buf);
-    	if(received.contains("ack"))
+    	//If ack stop sending
+    	if(received.startsWith("ack"))
     	{
     		m_ack = true;
     		return "";
     	}
     	else
     	{
+    		//Send an ack to server we received a message
     		boolean reply = replyMessage(m_serverAddress, m_serverPort);
     		if(reply == true)
     		{
+    			//This is what we got after trimming the whitespace
 		    	received = received.trim();
 		    	return received+"\n";
     		}
@@ -153,26 +157,27 @@ public class ServerConnection
 	    			buf[0] = 3;
 	    			buf[1] = (byte) splinter[1].length();
 	    			break;
-
+	    		//Users on server
 	    		case "/list":
 	    			String listMsg = 4 + "2" + m_name;
 	    			buf = listMsg.getBytes();
 	    			buf[0] = 4;
 	    			buf[1] = (byte) m_name.length();
 	    			break;
-	    				
+	    		//Leave the server
 	    		case "/leave":
 	    			String msg = "5" + 2  + m_name;
 	    			buf = msg.getBytes();
 	    			buf[0] = 5;
 	    			buf[1] = (byte) m_name.length();	
 	    			break;
+	    			//Command other than these 3 , return to geting messages
 	    		default :
 	    			return;
 	    		
     		}
     	}
-    		
+    	//Broadcast message
     	else
     	{
     		message = 2 + "1" + m_name + " : " + message;
@@ -210,7 +215,8 @@ public class ServerConnection
     			System.err.println("Lost message");
     	    	}
     		 try {
-    				Thread.sleep(1);
+    			 	//Let it sleep so we can get a return message
+    				Thread.sleep(10);
     			} catch (InterruptedException e) {
     				System.err.println("Thread no sleep");
     			}
@@ -221,6 +227,7 @@ public class ServerConnection
     public boolean replyMessage(InetAddress address, int port)
     {
     	byte[] returnBuf = new byte[24];
+    	//Message type + name
 		String one = 1 + m_name;
 		returnBuf = one.getBytes();
 		//Message type
@@ -232,6 +239,7 @@ public class ServerConnection
 		Random generator = new Random();
         
 		//So we don't need to ack the ack
+		//We send our name so only our message loop get set to true
         for(int i = 0; i <= 5; i++)
         {
         	double failure = generator.nextDouble();
