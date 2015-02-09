@@ -28,7 +28,7 @@ public class ServerConnection
     private InetAddress m_serverAddress = null;
     private int m_serverPort 			= -1;
     private String m_name				= null;
-    private PrintWriter m_out 			= null;
+    private ObjectOutputStream m_out 	= null;
     private BufferedReader m_in 		= null;
 
     public ServerConnection(String hostName, int port) 
@@ -44,7 +44,7 @@ public class ServerConnection
 
 		try{
 				m_socket = new Socket(m_serverAddress, m_serverPort);
-			    m_out = new PrintWriter(m_socket.getOutputStream(), true);
+			    m_out = new ObjectOutputStream(m_socket.getOutputStream());
 			    m_in = new BufferedReader( new InputStreamReader(m_socket.getInputStream()));
 		}
 		catch (UnknownHostException e)
@@ -74,7 +74,14 @@ public class ServerConnection
     	obj.put("id", 1).toString();
     	obj.put("name", name).toString();
     	
-    	m_out.println(obj);
+    	//Try to send handshake message
+    	try {
+			m_out.writeObject(obj);
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.err.println("Unable to send handshake");
+		}
+    	
 
 	    byte[] returnBuf = new byte[8];
 

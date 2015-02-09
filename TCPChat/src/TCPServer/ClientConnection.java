@@ -1,9 +1,7 @@
 package TCPServer;
 
-import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
+import java.io.*;
+import java.net.*;
 import java.util.Random;
 
 /**
@@ -37,7 +35,7 @@ public class ClientConnection {
 		if(value == true) {triesConnecet = 0;}
 	}
 	
-	public void sendMessage(String message, DatagramSocket socket) {
+	public void sendMessage(String message, ServerSocket socket) {
 		m_ack = false;
 		Random generator = new Random();
     	double failure;
@@ -48,18 +46,8 @@ public class ClientConnection {
     		triesConnecet += 1;
 		   	if (failure > TRANSMISSION_FAILURE_RATE){
 		    	// TODO: send a message to this client using socket.
-		    	byte[] buf = new byte[message.length()];
-		    	buf = message.getBytes();
-		    	DatagramPacket packet = new DatagramPacket(buf, buf.length, 
-		    											m_address, m_port);
 		    	if(m_ack == false)
-			    	try {
-			    		
-						socket.send(packet);
-						System.out.println(triesConnecet);
-					} catch (IOException e) {
-						System.err.println("Not able to send message");
-					}
+			   
 		    		break;
 		   	} else {
 		    	// Message got lost

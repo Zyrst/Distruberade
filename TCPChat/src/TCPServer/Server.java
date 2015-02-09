@@ -9,9 +9,8 @@ package TCPServer;
 
 //Student Simon Hedström(c13simhe)
 
-import java.io.IOException;
 import java.net.*;
-//import java.io.*;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Iterator;
 
@@ -19,6 +18,7 @@ public class Server {
 	
  private ArrayList<ClientConnection> m_connectedClients = new ArrayList<ClientConnection>();
  private ServerSocket m_socket;
+ private Socket clientSocket;
 
  public static void main(String[] args){    	
 		if(args.length < 1) {
@@ -39,8 +39,8 @@ public class Server {
 	// TODO: create a socket, attach it to port based on portNumber, and assign it to m_socket
  	try {
 			m_socket = new ServerSocket(portNumber);
+			
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 			System.err.println("Not able to bind socket");
 		}
@@ -54,7 +54,7 @@ public class Server {
 			
 			
 			try {
-				m_socket.accept();
+				clientSocket = m_socket.accept();
 				
 			} catch (IOException e) {
 				System.err.println("Not able to receive packet");
@@ -62,7 +62,22 @@ public class Server {
 			//Create new thread for a new message
 			thread = new Thread();
 			thread.start();
+
 			
+			try {
+				ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream());
+			} catch (IOException e) {
+				System.err.println("Unable to create Obj Output stream");
+				e.printStackTrace();
+			}
+			try {
+				ObjectInputStream  in = new ObjectInputStream (clientSocket.getInputStream());
+			} catch (IOException e) {
+				System.err.println("Unable to create Obj Input stream");
+				e.printStackTrace();
+			}
+			byte[] buf = null;
+			//TODO Look at JSON object and see what message type
 			//Which type of message in buf[0]
 			switch(buf[0])
 			{
@@ -70,48 +85,44 @@ public class Server {
 				case  1 :
 				{
 					//Receive data about the client
-					int port = packet.getPort();
-					InetAddress address = packet.getAddress();
+					int port = clientSocket.getPort();
+					InetAddress address = clientSocket.getInetAddress();
 					//Convert name to string from the buff
-					String name = new String(buf, 2, 20);
-					//Remove white space
-					name = name.trim();
+					//TODO Get name and stuff
+					
 					boolean added = false;
 					//Test if the name already exist
-					added = addClient(name, address, port);
+					//added = addClient(name, address, port);
 					
 					//Return buffer 
-					byte[] returnBuf = new byte[8];
 					if (added == false)
 					{
 						//Deny the client
-						returnBuf[0] = 0;
+						//TODO Make an JSOn object with decision
 						System.err.println("Already a user with that name");
 					}
 					else if(added == true)
 					{
-						returnBuf[0] = 1;
 						System.out.println("No user with that name"); 
 						
 					}
 				
 					//Return the decision 
-					String msg = returnBuf.toString();
-					sendPrivateMessage(msg,name);
+					//TODO Send back to client and broadcast it
+					//sendPrivateMessage(msg,name);
 					
-					broadcast(name + " has joined");
+					//broadcast(name + " has joined");
 					break;
 				}
 				
 				//Broadcast message
 				case 2:
 				{
+					//TODO Receive the message and broadcast it
 					String message = new String(buf, 2, buf[1]);
 					String[] name = message.split(" ", 2);
 					System.out.println("Broadcast message");
-					boolean reply = replyMessage(packet.getAddress(), packet.getPort(), name[0]);
-					if(reply == true)
-						broadcast(message);
+					broadcast(message);
 						
 					break;
 				}
@@ -119,6 +130,7 @@ public class Server {
 				//Send a private message
 				case 3:
 				{
+					//TODO Use JSON Parameters and make a private message
 					String message = new String(buf,2, buf[1]);
 					
 					//Split the name and the message
@@ -127,17 +139,16 @@ public class Server {
 					String[] splinter = message.split(" ", 5);
 					String construct = splinter[0] + " " + splinter[1] + " " + splinter[4];
 					String name = splinter[3];
-					boolean reply = replyMessage(packet.getAddress(), packet.getPort(), name);
-					if(reply == true)
-						sendPrivateMessage(construct, name);
+					sendPrivateMessage(construct, name);
 				}
 				
 				//List all the connected users
 				case 4:
 				{
+					//TODO List all connected users and return them
 					ClientConnection c;
 					String name = null;
-					String sender = new String(buf,2,buf[1]);
+					//String sender = new String(buf,2,buf[1]);
 					int i = 0;
 					//List all connected users
 					//Add to string which gets returned
@@ -158,15 +169,14 @@ public class Server {
 						}
 					}
 					String msg = "Current users: " + name;;
-					boolean reply = replyMessage(packet.getAddress(), packet.getPort(),sender);
-					if(reply == true)
-						sendPrivateMessage(msg,sender);
+					//sendPrivateMessage(msg,sender);
 					break;
 				}
 				
 				//Disconnect a user who request it
 				case 5:
 				{
+					//TODO Disconnect a user
 					String name = new String(buf,2,buf[1]);
 					ClientConnection c;
 					for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
@@ -176,30 +186,12 @@ public class Server {
 					    {
 					    	System.out.println("Removed user");
 					    	String msg = name + " has left";
-					    	boolean reply = replyMessage(packet.getAddress(), packet.getPort(), name);
-							if(reply == true)
-								m_connectedClients.remove(c);
-								broadcast(msg);
+							m_connectedClients.remove(c);
+							broadcast(msg);
 					    	break;
 					    }
 					}
 					break;
-				}
-				//Ack reply
-				case 6 : 
-				{
-					ClientConnection c;
-					String name = new String(buf,1,20);
-					name = name.trim();
-					for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
-					{
-					    c = itr.next();
-					    if(c.hasName(name))
-					    {
-					    	c.setAck(true);
-					    }
-					    
-					}
 				}
 			}		
 			removeCrashed();
@@ -263,26 +255,5 @@ public class Server {
 		    itr.next().sendMessage(message, m_socket);
 		}
  }
- 
- public boolean replyMessage(InetAddress address, int port,String name)
- {
- 	//Send an ack that a message was received
- 	//byte[] returnBuf = new byte[8];
-		String one = "ack";
-	/*	returnBuf = one.getBytes();
-		DatagramPacket reply = new DatagramPacket(returnBuf, returnBuf.length,
-				address,port);
-		try {
-			m_socket.send(reply);
-			//broadcast(one);
-		} catch (IOException e) {
-			//Failed to reply , return false
-			System.out.println("Tried sending a reply");
-			return false;
-		}
-		return true;*/
-			return sendPrivateMessage(one, name);
-		
 
- }
 }
