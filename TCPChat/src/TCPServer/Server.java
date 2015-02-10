@@ -14,11 +14,18 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Iterator;
 
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+
+
 public class Server {
 	
  private ArrayList<ClientConnection> m_connectedClients = new ArrayList<ClientConnection>();
  private ServerSocket m_socket;
  private Socket clientSocket;
+ private ObjectInputStream  m_in;
+ private ObjectOutputStream  m_out;
 
  public static void main(String[] args){    	
 		if(args.length < 1) {
@@ -46,104 +53,123 @@ public class Server {
 		}
  }
 
- private void listenForClientMessages() 
+ @SuppressWarnings("unchecked")
+private void listenForClientMessages() 
  {
 		System.out.println("Waiting for client messages... ");
-		Thread thread;
 		do {
-			
 			
 			try {
 				clientSocket = m_socket.accept();
-				
 			} catch (IOException e) {
 				System.err.println("Not able to receive packet");
 			}
-			//Create new thread for a new message
-			thread = new Thread();
-			thread.start();
-
 			
+			//TODO Not fuck things up
 			try {
-				ObjectOutputStream out = new ObjectOutputStream(clientSocket.getOutputStream());
+				 m_out = new ObjectOutputStream(clientSocket.getOutputStream());
 			} catch (IOException e) {
 				System.err.println("Unable to create Obj Output stream");
 				e.printStackTrace();
 			}
 			try {
-				ObjectInputStream  in = new ObjectInputStream (clientSocket.getInputStream());
+				m_in = new ObjectInputStream (clientSocket.getInputStream());
 			} catch (IOException e) {
 				System.err.println("Unable to create Obj Input stream");
 				e.printStackTrace();
 			}
-			byte[] buf = null;
+			
+			JSONObject obj = new JSONObject();
+			JSONParser parser = new JSONParser();
+			String inMSG = null; 
+		
+			try {
+				inMSG = (String) m_in.readObject();
+			} catch (ClassNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				System.err.println("Unable to read an object");
+				e.printStackTrace();
+			}
+			
+			try {
+				obj = (JSONObject) parser.parse(inMSG);
+			} catch (ParseException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
+			String command = obj.get("command").toString();
+			String sender = obj.get("name").toString();
+			System.out.println("Command issued " + command);
 			//TODO Look at JSON object and see what message type
-			//Which type of message in buf[0]
-			switch(buf[0])
+			
+			switch(command)
 			{
 				//Add a client
-				case  1 :
+				case  "handshake" :
 				{
 					//Receive data about the client
 					int port = clientSocket.getPort();
 					InetAddress address = clientSocket.getInetAddress();
-					//Convert name to string from the buff
-					//TODO Get name and stuff
 					
 					boolean added = false;
 					//Test if the name already exist
-					//added = addClient(name, address, port);
+					added = addClient(sender, address, port);
 					
-					//Return buffer 
+					JSONObject returnMSG = new JSONObject();
+					
 					if (added == false)
 					{
 						//Deny the client
-						//TODO Make an JSOn object with decision
+						returnMSG.put("decision", false);
 						System.err.println("Already a user with that name");
 					}
 					else if(added == true)
 					{
+						returnMSG.put("decision", true);
 						System.out.println("No user with that name"); 
 						
 					}
-				
-					//Return the decision 
+				 
 					//TODO Send back to client and broadcast it
-					//sendPrivateMessage(msg,name);
-					
-					//broadcast(name + " has joined");
+					sendPrivateMessage(returnMSG,sender);
+					JSONObject announce = new JSONObject();
+					announce.put("message", sender + " has joined");
+					if(added == true)
+						broadcast(announce);
 					break;
 				}
 				
 				//Broadcast message
-				case 2:
+				case "broadcast":
 				{
 					//TODO Receive the message and broadcast it
-					String message = new String(buf, 2, buf[1]);
-					String[] name = message.split(" ", 2);
+					String msg = obj.get("message").toString();
+					msg = sender + ": " + msg;
+					JSONObject sendMsg = new JSONObject();
+					sendMsg.put("message", msg);
 					System.out.println("Broadcast message");
-					broadcast(message);
+					broadcast(sendMsg);
 						
 					break;
 				}
 				
 				//Send a private message
-				case 3:
+				case "private":
 				{
 					//TODO Use JSON Parameters and make a private message
-					String message = new String(buf,2, buf[1]);
 					
 					//Split the name and the message
 					//Due to me adding in a weird way I had to split and reconstruct
 					//So we get <Name> whispered: <Message>
-					String[] splinter = message.split(" ", 5);
-					String construct = splinter[0] + " " + splinter[1] + " " + splinter[4];
-					String name = splinter[3];
-					sendPrivateMessage(construct, name);
+					
+					//sendPrivateMessage(construct, name);
 				}
 				
 				//List all the connected users
-				case 4:
+				case "list":
 				{
 					//TODO List all connected users and return them
 					ClientConnection c;
@@ -174,53 +200,30 @@ public class Server {
 				}
 				
 				//Disconnect a user who request it
-				case 5:
+				case "disconnect":
 				{
 					//TODO Disconnect a user
-					String name = new String(buf,2,buf[1]);
+					//String name = new String(buf,2,buf[1]);
 					ClientConnection c;
-					for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
+					/*for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
 					{
 					    c = itr.next();
 					    if(c.hasName(name))
 					    {
 					    	System.out.println("Removed user");
-					    	String msg = name + " has left";
+					    	//String msg = name + " has left";
 							m_connectedClients.remove(c);
-							broadcast(msg);
+							//broadcast(msg);
 					    	break;
 					    }
-					}
+					}*/
 					break;
 				}
-			}		
-			removeCrashed();
-			
+			}					
 		} while (true);
  }
  
- //Public function remove a client
- //Use it with a user client crashed
- public void removeCrashed()
- {
- 	ClientConnection c;
-		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
-		{
-			
-		    c = itr.next();
-		    int i = c.triedConnect();
-		    String name = c.getName();
-		    if(i > 10 && c.hasName(name) == true)
-		    {
-		    	System.out.println("Tried to remove a crashed client");
-		    	m_connectedClients.remove(c);
-		    	String msg = name + " disconnected";
-		    	broadcast(msg);
-		    	break;
-		    }
-		   
-		}
- }
+ 
  public boolean addClient(String name, InetAddress address, int port) 
  {
 		ClientConnection c;
@@ -230,29 +233,29 @@ public class Server {
 			return false; // Already exists a client with this name
 		    }
 		}
-		m_connectedClients.add(new ClientConnection(name, address, port));
+		m_connectedClients.add(new ClientConnection(name, address, port, m_out));
 		return true;
  }
 
- public boolean sendPrivateMessage(String message, String name) 
+ public boolean sendPrivateMessage(JSONObject message, String name) 
  {
 		ClientConnection c;
 		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
 		{
 		    c = itr.next();
 		    if(c.hasName(name)) {
-		    	c.sendMessage(message, m_socket);
+		    	c.sendMessage(message);
 		    	return true;
 		    }
 		}
 		return false;
  }
 
- public void broadcast(String message)
+ public void broadcast(JSONObject message)
  {
 		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
 		{
-		    itr.next().sendMessage(message, m_socket);
+		    itr.next().sendMessage(message);
 		}
  }
 

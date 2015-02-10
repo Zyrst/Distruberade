@@ -12,6 +12,8 @@ import java.net.*;
 import java.util.Random;
 
 import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 
 /**
@@ -29,7 +31,7 @@ public class ServerConnection
     private int m_serverPort 			= -1;
     private String m_name				= null;
     private ObjectOutputStream m_out 	= null;
-    private BufferedReader m_in 		= null;
+    private ObjectInputStream m_in		= null;
 
     public ServerConnection(String hostName, int port) 
     {
@@ -45,7 +47,7 @@ public class ServerConnection
 		try{
 				m_socket = new Socket(m_serverAddress, m_serverPort);
 			    m_out = new ObjectOutputStream(m_socket.getOutputStream());
-			    m_in = new BufferedReader( new InputStreamReader(m_socket.getInputStream()));
+			    m_in = new ObjectInputStream(m_socket.getInputStream());
 		}
 		catch (UnknownHostException e)
 		{
@@ -71,21 +73,42 @@ public class ServerConnection
     	JSONObject obj = new JSONObject();
     	
     	//Create our connection message
-    	obj.put("id", 1).toString();
-    	obj.put("name", name).toString();
+    	obj.put("command", "handshake");
+    	obj.put("name", name);
     	
+    	String message = obj.toString();
     	//Try to send handshake message
     	try {
-			m_out.writeObject(obj);
+			m_out.writeObject(message);
 		} catch (IOException e) {
 			e.printStackTrace();
 			System.err.println("Unable to send handshake");
 		}
     	
+    	String returnDec = null;
+    	
+    	try {
+			returnDec = (String) m_in.readObject();
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-	    byte[] returnBuf = new byte[8];
+    	JSONParser parser = new JSONParser();
+    	obj = new JSONObject();
+    	try {
+			obj = (JSONObject) parser.parse(returnDec);
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	
+    	String decision = obj.get("decision").toString();
 
-	    if(returnBuf[0] == 0)
+	    if(decision == "false")
 	    {
 	    	System.err.println("Darn already a user with that name");
 	    	return false;
@@ -100,13 +123,31 @@ public class ServerConnection
     }
 
     public String receiveChatMessage() {
-    	byte[] buf = new byte[256];
+    	
     	
     	//Receive a message
     	
-    	String received = new String(buf);
-
-		received = received.trim();
+    	String received = new String();
+    	
+    	try {
+			received = (String) m_in.readObject();
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	
+    	JSONParser parser = new JSONParser();
+    	JSONObject message = new JSONObject();
+    	try {
+			message = (JSONObject) parser.parse(received);
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		received = message.get("message").toString();
 		return received+"\n";
     	
     }
@@ -115,7 +156,9 @@ public class ServerConnection
     	// TODO: 
 		// * marshal message if necessary
 		// * send a chat message to the server
-    	byte buf[] = new byte[message.length() + 2];
+    	
+    	JSONObject obj = new JSONObject();
+    /*	byte buf[] = new byte[message.length() + 2];
     		
     	//If it starts with a slash look at what command
     	if(message.startsWith("/") == true)
@@ -150,29 +193,25 @@ public class ServerConnection
 	    			break;
 	    		
     		}
-    	}
+    	}*/
     		
-    	else
-    	{
-    		message = 2 + "1" + m_name + " : " + message;
-    		buf = message.getBytes();
-    		buf[0]  = 2;
-    		buf[1]  = (byte) message.length();	
+    	//else{}
+    		obj.put("command", "broadcast");
+    		obj.put("name", m_name);
+    		obj.put("message", message);
+    		System.out.println("Put stuff in to an object");
+    		String msg = obj.toString();
+    		
+    	//Send message
+    	try {
+			m_out.writeObject(msg);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-    	
-    	
-    	Random generator = new Random();
-        double failure;	
-    	failure = generator.nextDouble();
-    	if (failure > TRANSMISSION_FAILURE_RATE)
-    	{
-    		//Send message
     		    		
-    	}
-    	else{
-    	   	// Message got lost
-    		System.err.println("Lost message");
-    	    }
+    	
+    	
  
     }
    
