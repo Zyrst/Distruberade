@@ -4,6 +4,7 @@ package TCPClient;
 
 import java.awt.event.*;
 //import java.io.*;
+import java.io.IOException;
 
 
 public class Client implements ActionListener {
@@ -21,7 +22,7 @@ public class Client implements ActionListener {
 	try {
 	    Client instance = new Client(args[2]);
 	    instance.connectToServer(args[0], Integer.parseInt(args[1]));
-	} catch(NumberFormatException e) {
+	} catch(NumberFormatException | IOException e) {
 	    System.err.println("Error: port number must be an integer.");
 	    System.exit(-1);
 	}
@@ -34,7 +35,7 @@ public class Client implements ActionListener {
 	m_GUI = new ChatGUI(this, m_name);
     }
 
-    private void connectToServer(String hostName, int port) {
+    private void connectToServer(String hostName, int port) throws IOException {
 	//Create a new server connection
 	m_connection = new ServerConnection(hostName, port);
 	if(m_connection.handshake(m_name)) {

@@ -43,25 +43,28 @@ public class ServerConnection
 			e1.printStackTrace();
 			System.err.println("Failure to retrieve server");
 		}
-
-		try{
-				m_socket = new Socket(m_serverAddress, m_serverPort);
-			    m_out = new ObjectOutputStream(m_socket.getOutputStream());
-			    m_in = new ObjectInputStream(m_socket.getInputStream());
-		}
+		
+		createSocket();
+		 
+    }
+    public void createSocket()
+    {
+    	try{
+			m_socket = new Socket(m_serverAddress, m_serverPort);
+		    m_in = new ObjectInputStream(m_socket.getInputStream());
+		    m_out = new ObjectOutputStream(m_socket.getOutputStream());
+    	}
 		catch (UnknownHostException e)
 		{
-			System.err.println("Don't know about host " + hostName);
-            System.exit(1);
+			System.err.println("Don't know about host ");
+	        System.exit(1);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-		 catch (IOException e) {
-	            System.err.println("Couldn't get I/O for the connection to " + hostName);
-	            //System.exit(1);
-	        } 
     }
-
     @SuppressWarnings("unchecked")
-	public boolean handshake(String name) 
+	public boolean handshake(String name) throws IOException 
     {
     	m_name = name;
    	// TODO:
@@ -78,21 +81,12 @@ public class ServerConnection
     	
     	String message = obj.toString();
     	//Try to send handshake message
-    	try {
-			m_out.writeObject(message);
-		} catch (IOException e) {
-			e.printStackTrace();
-			System.err.println("Unable to send handshake");
-		}
-    	
+		m_out.writeObject(message);
     	String returnDec = null;
     	
     	try {
 			returnDec = (String) m_in.readObject();
 		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
@@ -107,17 +101,22 @@ public class ServerConnection
 		}
     	
     	String decision = obj.get("decision").toString();
-
-	    if(decision == "false")
+    	
+	    if(decision == "true")
 	    {
-	    	System.err.println("Darn already a user with that name");
-	    	return false;
+	    	String Port = obj.get("port").toString();
+	    	m_serverPort = Integer.parseInt(Port);
+	    	m_socket.close();
+	    	createSocket();
+	    	System.out.println("Connection established");
+	    	return true;
 	    	
 	    }
 	    else
 	    {
-	    	System.out.println("Connection established");
-	    	return true;
+	    	System.err.println("Darn already a user with that name");
+	    	m_socket.close();
+	    	return false;
 	    }
 	    
     }
@@ -126,7 +125,6 @@ public class ServerConnection
     	
     	
     	//Receive a message
-    	
     	String received = new String();
     	
     	try {
@@ -152,7 +150,8 @@ public class ServerConnection
     	
     }
 
-    public void sendChatMessage(String message) {
+    @SuppressWarnings("unchecked")
+	public void sendChatMessage(String message) {
     	// TODO: 
 		// * marshal message if necessary
 		// * send a chat message to the server

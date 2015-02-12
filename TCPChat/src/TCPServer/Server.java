@@ -58,14 +58,13 @@ private void listenForClientMessages()
  {
 		System.out.println("Waiting for client messages... ");
 		do {
-			
+			System.out.println("Waiting to accept my children");
 			try {
 				clientSocket = m_socket.accept();
 			} catch (IOException e) {
 				System.err.println("Not able to receive packet");
 			}
-			
-			//TODO Not fuck things up
+			System.out.println("OOOOH MY CHILDREN");
 			try {
 				 m_out = new ObjectOutputStream(clientSocket.getOutputStream());
 			} catch (IOException e) {
@@ -99,142 +98,176 @@ private void listenForClientMessages()
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-
+			
 			String command = obj.get("command").toString();
 			String sender = obj.get("name").toString();
 			System.out.println("Command issued " + command);
 			//TODO Look at JSON object and see what message type
+
+			//Add a client
 			
-			switch(command)
-			{
-				//Add a client
-				case  "handshake" :
+				//Receive data about the client
+				int port = clientSocket.getPort();
+				InetAddress address = clientSocket.getInetAddress();
+				ServerSocket m_client = null ;
+				try {
+					System.out.println("Try and make a server socket");
+					m_client = new ServerSocket(0);
+					System.out.println("Yey socket");
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+				ClientConnection added = null;
+				//Test if the name already exist
+				System.out.println("Wat");
+				added = addClient(sender, address, port,m_client);
+				System.out.println("Maybe");
+				JSONObject returnMSG = new JSONObject();
+				
+				if (added == null)
 				{
-					//Receive data about the client
-					int port = clientSocket.getPort();
-					InetAddress address = clientSocket.getInetAddress();
-					
-					boolean added = false;
-					//Test if the name already exist
-					added = addClient(sender, address, port);
-					
-					JSONObject returnMSG = new JSONObject();
-					
-					if (added == false)
-					{
-						//Deny the client
-						returnMSG.put("decision", false);
-						System.err.println("Already a user with that name");
+					//Deny the client
+					returnMSG.put("decision", false);
+					System.err.println("Already a user with that name");
+					try {
+						m_out.writeObject(returnMSG.toString());
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
-					else if(added == true)
-					{
-						returnMSG.put("decision", true);
-						System.out.println("No user with that name"); 
-						
+					continue;
+				}
+				else
+				{
+					returnMSG.put("decision", true);
+					returnMSG.put("port", m_client.getLocalPort());
+					System.out.println("No user with that name");
+					try {
+						m_out.writeObject(returnMSG.toString());
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
-				 
-					//TODO Send back to client and broadcast it
-					sendPrivateMessage(returnMSG,sender);
-					JSONObject announce = new JSONObject();
-					announce.put("message", sender + " has joined");
-					if(added == true)
-						broadcast(announce);
-					break;
-				}
-				
-				//Broadcast message
-				case "broadcast":
-				{
-					//TODO Receive the message and broadcast it
-					String msg = obj.get("message").toString();
-					msg = sender + ": " + msg;
-					JSONObject sendMsg = new JSONObject();
-					sendMsg.put("message", msg);
-					System.out.println("Broadcast message");
-					broadcast(sendMsg);
-						
-					break;
-				}
-				
-				//Send a private message
-				case "private":
-				{
-					//TODO Use JSON Parameters and make a private message
+					added.acceptClient();
+					Thread clientThread = new Thread( added );
+					clientThread.start();
 					
-					//Split the name and the message
-					//Due to me adding in a weird way I had to split and reconstruct
-					//So we get <Name> whispered: <Message>
-					
-					//sendPrivateMessage(construct, name);
 				}
+			 
+				//TODO Send back to client and broadcast it
 				
-				//List all the connected users
-				case "list":
-				{
-					//TODO List all connected users and return them
-					ClientConnection c;
-					String name = null;
-					//String sender = new String(buf,2,buf[1]);
-					int i = 0;
-					//List all connected users
-					//Add to string which gets returned
-					for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();)
-					{
-						c = itr.next();
-						//First person no need for space in front of name
-						if( i == 0)
-						{
-							name = c.getName();
-							i++;
-						}
-						// The rest
-						else
-						{
-							name += "   " + c.getName();
-							i++;
-						}
-					}
-					String msg = "Current users: " + name;;
-					//sendPrivateMessage(msg,sender);
-					break;
-				}
+				JSONObject announce = new JSONObject();
+				announce.put("message", sender + " has joined");
 				
-				//Disconnect a user who request it
-				case "disconnect":
-				{
-					//TODO Disconnect a user
-					//String name = new String(buf,2,buf[1]);
-					ClientConnection c;
-					/*for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
-					{
-					    c = itr.next();
-					    if(c.hasName(name))
-					    {
-					    	System.out.println("Removed user");
-					    	//String msg = name + " has left";
-							m_connectedClients.remove(c);
-							//broadcast(msg);
-					    	break;
-					    }
-					}*/
-					break;
-				}
-			}					
+				broadcast(announce);
+			
 		} while (true);
  }
  
+ @SuppressWarnings("unchecked")
+public void serverCommands(JSONObject obj)
+ {
+	String command = obj.get("command").toString();
+	String sender = obj.get("name").toString();
+	System.out.println("Command issued " + command);
+	 switch(command)
+		{
+			
+			//Broadcast message
+			case "broadcast":
+			{
+				//TODO Receive the message and broadcast it
+				String msg = obj.get("message").toString();
+				msg = sender + ": " + msg;
+				JSONObject sendMsg = new JSONObject();
+				sendMsg.put("message", msg);
+				System.out.println("Broadcast message");
+				broadcast(sendMsg);
+					
+				break;
+			}
+			
+			//Send a private message
+			case "private":
+			{
+				//TODO Use JSON Parameters and make a private message
+				
+				//Split the name and the message
+				//Due to me adding in a weird way I had to split and reconstruct
+				//So we get <Name> whispered: <Message>
+				
+				//sendPrivateMessage(construct, name);
+			}
+			
+			//List all the connected users
+			case "list":
+			{
+				//TODO List all connected users and return them
+				ClientConnection c;
+				String name = null;
+				//String sender = new String(buf,2,buf[1]);
+				int i = 0;
+				//List all connected users
+				//Add to string which gets returned
+				for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();)
+				{
+					c = itr.next();
+					//First person no need for space in front of name
+					if( i == 0)
+					{
+						name = c.getName();
+						i++;
+					}
+					// The rest
+					else
+					{
+						name += "   " + c.getName();
+						i++;
+					}
+				}
+				String msg = "Current users: " + name;
+				//sendPrivateMessage(msg,sender);
+				break;
+			}
+			
+			//Disconnect a user who request it
+			case "disconnect":
+			{
+				//TODO Disconnect a user
+				//String name = new String(buf,2,buf[1]);
+				ClientConnection c;
+				/*for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
+				{
+				    c = itr.next();
+				    if(c.hasName(name))
+				    {
+				    	System.out.println("Removed user");
+				    	//String msg = name + " has left";
+						m_connectedClients.remove(c);
+						//broadcast(msg);
+				    	break;
+				    }
+				}*/
+				break;
+			}
+		}					
+	
+ }
  
- public boolean addClient(String name, InetAddress address, int port) 
+ public ClientConnection addClient(String name, InetAddress address, int port, ServerSocket socket) 
  {
 		ClientConnection c;
 		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) {
 		    c = itr.next();
 		    if(c.hasName(name)) {
-			return false; // Already exists a client with this name
+			return null; // Already exists a client with this name
 		    }
 		}
-		m_connectedClients.add(new ClientConnection(name, address, port, m_out));
-		return true;
+		c = new ClientConnection(name, address, port, socket, this);
+		m_connectedClients.add( c );
+		return c;
  }
 
  public boolean sendPrivateMessage(JSONObject message, String name) 
