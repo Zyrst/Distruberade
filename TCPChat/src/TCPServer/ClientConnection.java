@@ -21,17 +21,21 @@ public class ClientConnection implements Runnable {
 	private final ServerSocket m_socket;
 	private final Server m_server;
 
-	public ClientConnection(String name, InetAddress address, int port, ServerSocket socket, Server server ) {
-		m_name = name;
-		m_address = address;
-		m_port = port;
-		m_socket = socket;
-		m_out = null;
-		m_server = server;
+	public ClientConnection(String name, InetAddress address, int port, ServerSocket socket, Server server ) 
+	{
+		m_name 		= name;
+		m_address 	= address;
+		m_port 		= port;
+		m_socket 	= socket;
+		m_out 		= null;
+		m_in		= null;
+		m_server 	= server;
 		
 	}
+
 	public void acceptClient()
 	{
+		//New socket for a specific client
 		Socket client = null;
 		try {
 			client = m_socket.accept();
@@ -39,13 +43,14 @@ public class ClientConnection implements Runnable {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		//Output stream for client
 		try {
 			m_out = new ObjectOutputStream(client.getOutputStream());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
+		//And input stream
 		try {
 			m_in = new ObjectInputStream(client.getInputStream());
 		} catch (IOException e) {
@@ -53,6 +58,7 @@ public class ClientConnection implements Runnable {
 			e.printStackTrace();
 		}
 	}
+
 	public String getName()
 	{
 		return m_name;
@@ -93,6 +99,7 @@ public class ClientConnection implements Runnable {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			//Create json object from the streamed string
 			System.out.println(received);
 			JSONParser parser = new JSONParser();
 			JSONObject command = new JSONObject();
@@ -102,8 +109,19 @@ public class ClientConnection implements Runnable {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			//Send it back to main server thread to issue commands
+			if(command.equals("disconencted"))
+			{
+				try {
+					m_socket.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
 			
 			m_server.serverCommands(command);
+			
 		}
 	}
 }

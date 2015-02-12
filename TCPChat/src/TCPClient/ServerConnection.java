@@ -26,6 +26,7 @@ public class ServerConnection
 	//Artificial failure rate of 30% packet loss
 	static double TRANSMISSION_FAILURE_RATE = 0.3;
 	
+	private int handPort				= -1;
     private Socket m_socket 			= null;
     private InetAddress m_serverAddress = null;
     private int m_serverPort 			= -1;
@@ -36,6 +37,8 @@ public class ServerConnection
     public ServerConnection(String hostName, int port) 
     {
 		m_serverPort = port;
+		handPort = port;
+		
 		try {
 			m_serverAddress = InetAddress.getByName(hostName);
 			System.out.println("Found host");
@@ -60,7 +63,7 @@ public class ServerConnection
 	        System.exit(1);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			System.out.println("We fucked up in creating a socket and streams");
 		}
     }
     @SuppressWarnings("unchecked")
@@ -80,7 +83,8 @@ public class ServerConnection
     	obj.put("name", name);
     	
     	String message = obj.toString();
-    	//Try to send handshake message
+    	
+    	//Send handshake message
 		m_out.writeObject(message);
     	String returnDec = null;
     	
@@ -88,7 +92,7 @@ public class ServerConnection
 			returnDec = (String) m_in.readObject();
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			System.out.println("not able to read an object");
 		}
 
     	JSONParser parser = new JSONParser();
@@ -97,16 +101,19 @@ public class ServerConnection
 			obj = (JSONObject) parser.parse(returnDec);
 		} catch (ParseException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			System.out.println("Unable to parse an JSONObject in handshake");
 		}
     	
     	String decision = obj.get("decision").toString();
     	
 	    if(decision == "true")
 	    {
+	    	//New socket which we shall communicate over
 	    	String Port = obj.get("port").toString();
 	    	m_serverPort = Integer.parseInt(Port);
+	    	//Close old one
 	    	m_socket.close();
+	    	//Create new one
 	    	createSocket();
 	    	System.out.println("Connection established");
 	    	return true;
@@ -121,9 +128,8 @@ public class ServerConnection
 	    
     }
 
-    public String receiveChatMessage() {
-    	
-    	
+    public String receiveChatMessage() 
+    {
     	//Receive a message
     	String received = new String();
     	
@@ -151,56 +157,87 @@ public class ServerConnection
     }
 
     @SuppressWarnings("unchecked")
-	public void sendChatMessage(String message) {
+	public void sendChatMessage(String message) 
+    {
     	// TODO: 
 		// * marshal message if necessary
 		// * send a chat message to the server
     	
     	JSONObject obj = new JSONObject();
-    /*	byte buf[] = new byte[message.length() + 2];
-    		
+    	obj.put("name", m_name);
     	//If it starts with a slash look at what command
     	if(message.startsWith("/") == true)
     	{
     		//Split message so we have the command and the message
-    		String[] splinter = message.split(" ",2);
-    		System.out.println("Slash command issued");
+    		String[] splinter = message.split(" ",3);
+    		//System.out.println(splinter[1]);
 
     		switch(splinter[0])
     		{
 	    		case "/tell":
 	    			//Tell / whisper to identify it's specifically to you
-	    			splinter[1] = m_name + " whispered:  " + splinter[1];
-	    			message = 2 + "1" + splinter[1];
-	    			buf = message.getBytes();
-	    			buf[0] = 3;
-	    			buf[1] = (byte) splinter[1].length();
+	    			message = m_name + " whispered:  " + splinter[2];
+	    			obj.put("command", "tell");
+	    			obj.put("target", splinter[1]);
+	    			obj.put("message", message);
 	    			break;
 
 	    		case "/list":
-	    			String listMsg = 4 + "2" + m_name;
-	    			buf = listMsg.getBytes();
-	    			buf[0] = 4;
-	    			buf[1] = (byte) m_name.length();
+	    			obj.put("command", "list");
 	    			break;
 	    				
 	    		case "/leave":
-	    			String msg = "5" + 2  + m_name;
-	    			buf = msg.getBytes();
-	    			buf[0] = 5;
-	    			buf[1] = (byte) m_name.length();	
+	    			obj.put("command", "disconnect");	
 	    			break;
-	    		
+	    		case "/help":
+	    			obj.put("command", "help");
+	    			if(splinter.length != 1)
+	    			{
+	    				obj.put("second command", splinter[1]);
+	    				System.out.println("was something");
+	    			}
+	    			else
+	    			{
+	    				obj.put("second command", "helper");
+	    				System.out.println("nothing else");
+	    			}
+	    			break;
+	    		case "/zoidberg":
+	    		{
+	    			obj.put("command", "zoidberg");
+	    			break;
+	    		}
+	    		case "/join":
+	    		{
+	    			System.out.println("Want to join server again");
+	    			try {
+	    				m_socket.close();
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						System.out.println("I was unable to close the socket");
+					}
+	    			m_serverPort = handPort;
+	    			createSocket();
+	    			boolean wat = false;
+	    			try {
+						wat = handshake(m_name);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						System.out.println("Dun goofed in handshaking at a rejoin");
+					}
+	    			System.out.println(wat);
+	    			break;
+	    		}
     		}
-    	}*/
+    	}
     		
-    	//else{}
+    	else{
     		obj.put("command", "broadcast");
-    		obj.put("name", m_name);
     		obj.put("message", message);
-    		System.out.println("Put stuff in to an object");
-    		String msg = obj.toString();
-    		
+    		System.out.println("Broadcast message client");
+    		}
+    	
+    	String msg = obj.toString();
     	//Send message
     	try {
 			m_out.writeObject(msg);
@@ -208,10 +245,7 @@ public class ServerConnection
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-    		    		
-    	
-    	
- 
+
     }
    
 }
