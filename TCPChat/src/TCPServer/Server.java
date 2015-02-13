@@ -11,16 +11,18 @@ package TCPServer;
 
 import java.net.*;
 import java.io.*;
+import java.sql.Time;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Timer;
 
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
 
-public class Server {
+public class Server  {
 	
  private ArrayList<ClientConnection> m_connectedClients = new ArrayList<ClientConnection>();
  private HashMap<String, Thread> m_clientThreads = new HashMap<String, Thread>();
@@ -37,6 +39,7 @@ public class Server {
 		try {
 		    Server instance = new Server(Integer.parseInt(args[0]));
 		    instance.listenForClientMessages();
+		    instance.run();
 		} catch(NumberFormatException e) {
 		    System.err.println("Error: port number must be an integer.");
 		    System.exit(-1);
@@ -54,32 +57,39 @@ public class Server {
 			System.err.println("Not able to bind socket");
 		}
  }
+ 
+ private void createSocket()
+ {
+	 try {
+			clientSocket = m_socket.accept();
+			System.out.println("Accepting on server socket");
+		} catch (IOException e) {
+			System.err.println("Not able to receive packet");
+		}
+	 
+	 try {
+		 m_out = new ObjectOutputStream(clientSocket.getOutputStream());
+	} catch (IOException e) {
+		System.err.println("Unable to create Obj Output stream");
+		e.printStackTrace();
+	}
+	try {
+		m_in = new ObjectInputStream (clientSocket.getInputStream());
+	} catch (IOException e) {
+		System.err.println("Unable to create Obj Input stream");
+		e.printStackTrace();
+	}
+ }
 
  @SuppressWarnings("unchecked")
 private void listenForClientMessages() 
  {
 		System.out.println("Waiting for client messages... ");
 		do {
-			//Accept a client , this is gonna be an handshake message
-			try {
-				clientSocket = m_socket.accept();
-				System.out.println("Accepting on server socket");
-			} catch (IOException e) {
-				System.err.println("Not able to receive packet");
-			}
+			checkStatus();
 			
-			try {
-				 m_out = new ObjectOutputStream(clientSocket.getOutputStream());
-			} catch (IOException e) {
-				System.err.println("Unable to create Obj Output stream");
-				e.printStackTrace();
-			}
-			try {
-				m_in = new ObjectInputStream (clientSocket.getInputStream());
-			} catch (IOException e) {
-				System.err.println("Unable to create Obj Input stream");
-				e.printStackTrace();
-			}
+			//Accept a client , this is gonna be an handshake message
+			createSocket();
 			
 			JSONObject obj = new JSONObject();
 			JSONParser parser = new JSONParser();
@@ -135,6 +145,8 @@ private void listenForClientMessages()
 			{
 				//Deny the client
 				returnMSG.put("decision", false);
+				String message = "Not able to join";
+				returnMSG.put("message", message);
 				System.err.println("Already a user with that name");
 				try {
 					m_out.writeObject(returnMSG.toString());
@@ -174,6 +186,7 @@ private void listenForClientMessages()
  @SuppressWarnings({ "unchecked", "deprecation" })
 public void serverCommands(JSONObject obj)
  {
+	checkStatus();
 	String command = obj.get("command").toString();
 	String sender = obj.get("name").toString();
 	JSONObject returnMSG = new JSONObject();
@@ -291,7 +304,9 @@ public void serverCommands(JSONObject obj)
 							break;
 						case "zoidberg":
 							msg = "/zoidberg - send a ascii charcter of zoidberg to everyone in the chatroom";
-							break;					
+							break;	
+						case "null":
+							return;
 					}
 					returnMSG.put("message", msg);
 					sendPrivateMessage(returnMSG, sender);
@@ -306,10 +321,37 @@ public void serverCommands(JSONObject obj)
 				break;
 			}
 			case "join":
+				createSocket();
 				return;
 				
-		}					
-	
+		}
+	checkStatus();
+ }
+ 
+ @SuppressWarnings({ "unchecked", "deprecation" })
+private void checkStatus()
+ {
+	 JSONObject returnMSG = new JSONObject();
+	 ClientConnection c;
+		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();)
+		{
+			c=itr.next();
+			String sender = c.getName();
+			Thread thread = m_clientThreads.get(sender);
+			if(!thread.isAlive())
+			{
+				System.out.println("Removed user");
+		    	String msg = sender + " has left";
+		    	returnMSG.put("message", msg);
+				broadcast(returnMSG);
+				m_connectedClients.remove(c);
+				Thread client = m_clientThreads.get(sender);
+				client.stop();
+				m_clientThreads.remove(sender);
+		    	break;
+			}
+		}
+				
  }
  
  public ClientConnection addClient(String name, InetAddress address, int port, ServerSocket socket) 
@@ -347,5 +389,20 @@ public void serverCommands(JSONObject obj)
 		    itr.next().sendMessage(message);
 		}
  }
-
+ public void run()
+	{
+	 long startTime = System.currentTimeMillis();
+	 long elapsedTime = 0;
+	 while(true)
+	 {
+		 elapsedTime = System.currentTimeMillis() - startTime;
+		 if(elapsedTime > 200)
+		 {
+			 checkStatus();
+			 startTime = System.currentTimeMillis();
+		
+		 }
+	 }
+	
+	}
 }

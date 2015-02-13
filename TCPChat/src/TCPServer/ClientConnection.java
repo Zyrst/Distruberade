@@ -2,10 +2,13 @@ package TCPServer;
 
 import java.io.*;
 import java.net.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+
 
 /**
  * 
@@ -21,6 +24,8 @@ public class ClientConnection implements Runnable {
 	private final ServerSocket m_socket;
 	private final Server m_server;
 	private  Socket m_clientSocket;
+	private boolean m_alive;
+	private final Lock m_mutex = new ReentrantLock(true);
 
 	public ClientConnection(String name, InetAddress address, int port, ServerSocket socket, Server server ) 
 	{
@@ -31,6 +36,7 @@ public class ClientConnection implements Runnable {
 		m_out 		= null;
 		m_in		= null;
 		m_server 	= server;
+		m_alive 	= true;
 		
 	}
 
@@ -67,7 +73,7 @@ public class ClientConnection implements Runnable {
 	
 	public void sendMessage(JSONObject message) {
 		// TODO: send a message to this client using socket
-		System.out.println("ClientConnect port: " + m_clientSocket.getPort() + "ServerSocket port" + m_socket.getLocalPort());
+		m_mutex.lock();
 		String msg = message.toString();
 		try {
 			m_out.writeObject(msg);
@@ -75,11 +81,32 @@ public class ClientConnection implements Runnable {
 			System.err.println("Unable to write object to client");
 			e.printStackTrace();
 		}
-
+		m_mutex.unlock();
 	}
 	
 	public boolean hasName(String testName) {
 		return testName.equals(m_name);
+	}
+	
+	@SuppressWarnings("unchecked")
+	public boolean isAlive()
+	{
+		JSONObject obj = new JSONObject();
+		System.out.println("See if connections are alive");
+		obj.put("ping", "are you alive");
+	
+		m_mutex.lock();
+		String msg = obj.toString();
+		try {
+			m_out.writeObject(msg);
+			m_alive = true;
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			m_alive = false;
+		}
+		m_mutex.unlock();
+		return m_alive;
 	}
 	
 	//Create a new thread from server which receives messages from client
@@ -87,11 +114,10 @@ public class ClientConnection implements Runnable {
 	@Override
 	public void run()
 	{
-		System.out.print("Starting a new Thread");	
-		while(true)
+		boolean connected = true;
+		while(connected == true)
 		{
 			String received = null;
-			System.out.println(Thread.currentThread());
 			try {
 				received = (String) m_in.readObject();
 			} catch (ClassNotFoundException e) {
@@ -102,7 +128,6 @@ public class ClientConnection implements Runnable {
 				e.printStackTrace();
 			}
 			//Create json object from the streamed string
-			System.out.println(received);
 			JSONParser parser = new JSONParser();
 			JSONObject command = new JSONObject();
 			try {
@@ -111,6 +136,7 @@ public class ClientConnection implements Runnable {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			
 			if(!command.containsKey("command"))
 				command.put("command", "join");
 			//Send it back to main server thread to issue commands
@@ -119,6 +145,7 @@ public class ClientConnection implements Runnable {
 				try {
 					m_socket.close();
 					m_clientSocket.close();
+					connected = false;
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();

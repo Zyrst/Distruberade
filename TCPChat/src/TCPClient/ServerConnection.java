@@ -52,7 +52,7 @@ public class ServerConnection
     {
     	try{
 			m_socket = new Socket(m_serverAddress, m_serverPort);
-			System.out.println("Made socket with port" + m_socket.getPort());
+			System.out.println("Connected socket" + m_socket.getPort() + " Listens to " + m_socket.getLocalPort());
 		    m_in = new ObjectInputStream(m_socket.getInputStream());
 		    m_out = new ObjectOutputStream(m_socket.getOutputStream());
     	}
@@ -132,7 +132,6 @@ public class ServerConnection
     {
     	//Receive a message
     	String received = new String();
-    	System.out.println(m_socket.getLocalPort());
     	try {
 			received = (String) m_in.readObject();
 		} catch (ClassNotFoundException e) {
@@ -151,9 +150,16 @@ public class ServerConnection
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		received = message.get("message").toString();
-		return received+"\n";
     	
+    	if(message.containsKey("ping"))
+    	{
+    		return null;
+    	}
+    	else
+    	{
+    		received = message.get("message").toString();
+    		return received+"\n";
+    	}
     }
 
     @SuppressWarnings("unchecked")
@@ -162,7 +168,6 @@ public class ServerConnection
     	// TODO: 
 		// * marshal message if necessary
 		// * send a chat message to the server
-    	
     	JSONObject obj = new JSONObject();
     	obj.put("name", m_name);
     	//If it starts with a slash look at what command
@@ -188,18 +193,17 @@ public class ServerConnection
 	    				
 	    		case "/leave":
 	    			obj.put("command", "disconnect");	
+	    			
 	    			break;
 	    		case "/help":
 	    			obj.put("command", "help");
 	    			if(splinter.length != 1)
 	    			{
 	    				obj.put("second command", splinter[1]);
-	    				System.out.println("was something");
 	    			}
 	    			else
 	    			{
 	    				obj.put("second command", "helper");
-	    				System.out.println("nothing else");
 	    			}
 	    			break;
 	    		case "/zoidberg":
@@ -214,25 +218,29 @@ public class ServerConnection
 	    			createSocket();
 	    			try {
 						handshake(m_name);
+						break;
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
-						System.out.println("Dun goofed in handshaking at a rejoin");
+						System.out.println("Not able to handshake in rejoin");
 					}
 	    			break;
 	    		}
+	    		default:
+	    			return;
     		}
     	}
     		
-    	else{
+    	else
+    	{
     		obj.put("command", "broadcast");
     		obj.put("message", message);
     		System.out.println("Broadcast message client");
-    		}
+    	}
     	
     	String msg = obj.toString();
+    	
     	//Send message
     	try {
-    		System.out.println("Current port " + m_serverPort);
 			m_out.writeObject(msg);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
