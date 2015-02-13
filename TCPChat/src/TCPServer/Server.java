@@ -63,6 +63,7 @@ private void listenForClientMessages()
 			//Accept a client , this is gonna be an handshake message
 			try {
 				clientSocket = m_socket.accept();
+				System.out.println("Accepting on server socket");
 			} catch (IOException e) {
 				System.err.println("Not able to receive packet");
 			}
@@ -86,6 +87,7 @@ private void listenForClientMessages()
 			//Stream in a message 
 			try {
 				inMSG = (String) m_in.readObject();
+				System.out.println("Try to read on input stream");
 			} catch (ClassNotFoundException e) {
 				e.printStackTrace();
 			} catch (IOException e) {
@@ -93,6 +95,7 @@ private void listenForClientMessages()
 				System.err.println("Unable to read an object");
 				e.printStackTrace();
 			}
+			System.out.println(inMSG);
 			//Parse it to a json object
 			try {
 				obj = (JSONObject) parser.parse(inMSG);
@@ -103,69 +106,67 @@ private void listenForClientMessages()
 			
 			String command = obj.get("command").toString();
 			String sender = obj.get("name").toString();
-			System.out.println("Command issued " + command);
+			System.out.println("Command issued " + command + " for" + sender);
 
 			//Add a client
 			
-				//Receive data about the client
-				int port = clientSocket.getPort();
-				InetAddress address = clientSocket.getInetAddress();
-				ServerSocket m_client = null ;
+			//Receive data about the client
+			int port = clientSocket.getPort();
+			InetAddress address = clientSocket.getInetAddress();
+			ServerSocket m_client = null ;
+			try {
+				System.out.println("Try and make a server socket");
+				//Bind a random port, client unique
+				m_client = new ServerSocket(0);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+				
+			//Have the client to so we can do some "magic"
+			ClientConnection added = null;
+			//Test if the name already exist
+			added = addClient(sender, address, port,m_client);
+			//JSON object used for the return message
+			JSONObject returnMSG = new JSONObject();
+				
+			//If we still have null meant there already was a user with that name
+			if (added == null)
+			{
+				//Deny the client
+				returnMSG.put("decision", false);
+				System.err.println("Already a user with that name");
 				try {
-					System.out.println("Try and make a server socket");
-					//Bind a random port, client unique
-					m_client = new ServerSocket(0);
+					m_out.writeObject(returnMSG.toString());
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				
-				//Have the client to so we can do some "magic"
-				ClientConnection added = null;
-				//Test if the name already exist
-				added = addClient(sender, address, port,m_client);
-				//JSON object used for the return message
-				JSONObject returnMSG = new JSONObject();
-				
-				//If we still have null meant there already was a user with that name
-				if (added == null)
-				{
-					//Deny the client
-					returnMSG.put("decision", false);
-					System.err.println("Already a user with that name");
-					try {
-						m_out.writeObject(returnMSG.toString());
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					continue;
+				continue;
 				}
-				//If anything else than null , accept it
-				else
-				{
-					returnMSG.put("decision", true);
-					returnMSG.put("port", m_client.getLocalPort());
-					System.out.println("No user with that name");
-					try {
-						m_out.writeObject(returnMSG.toString());
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					added.acceptClient();
-					Thread clientThread = new Thread( added );
-					clientThread.start();
-					m_clientThreads.put(sender,clientThread );
+			//If anything else than null , accept it
+			else
+			{
+				returnMSG.put("decision", true);
+				returnMSG.put("port", m_client.getLocalPort());
+				System.out.println("No user with that name");
+				try {
+					m_out.writeObject(returnMSG.toString());
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				added.acceptClient();
+				Thread clientThread = new Thread( added );
+				clientThread.start();
+				m_clientThreads.put(sender,clientThread );
 					
-				}
+			}
 			 
-				//Broadcast who joined
-				
-				JSONObject announce = new JSONObject();
-				announce.put("message", sender + " has joined");
-				
-				broadcast(announce);
+			//Broadcast who joined	
+			JSONObject announce = new JSONObject();
+			announce.put("message", sender + " has joined");
+			broadcast(announce);
 			
 		} while (true);
  }
@@ -175,7 +176,6 @@ public void serverCommands(JSONObject obj)
  {
 	String command = obj.get("command").toString();
 	String sender = obj.get("name").toString();
-	JSONParser parser = new JSONParser();
 	JSONObject returnMSG = new JSONObject();
 	System.out.println("Command issued " + command);
 	switch(command)
@@ -226,7 +226,7 @@ public void serverCommands(JSONObject obj)
 					// The rest
 					else
 					{
-						name += "   " + c.getName();
+						name += "  " + c.getName();
 						i++;
 					}
 				}
@@ -247,14 +247,15 @@ public void serverCommands(JSONObject obj)
 				    c = itr.next();
 				    if(c.hasName(sender))
 				    {
+				    	
 				    	System.out.println("Removed user");
 				    	String msg = sender + " has left";
+				    	returnMSG.put("message", msg);
+						broadcast(returnMSG);
 						m_connectedClients.remove(c);
 						Thread client = m_clientThreads.get(sender);
 						client.stop();
 						m_clientThreads.remove(sender);
-						returnMSG.put("message", msg);
-						broadcast(returnMSG);
 				    	break;
 				    }
 				}
@@ -263,14 +264,9 @@ public void serverCommands(JSONObject obj)
 			case "help":
 			{
 				String secCommand = null;
-				//Stuff goes here 
-				if(obj.containsKey("second command"))
-				{
-					secCommand =  obj.get("second command").toString();
-				}
+				secCommand =  obj.get("second command").toString();
 				
-				
-				String msg = "Hello";
+				String msg = null;
 				
 				System.out.println(secCommand);
 					switch(secCommand)
@@ -309,6 +305,9 @@ public void serverCommands(JSONObject obj)
 				broadcast(returnMSG);
 				break;
 			}
+			case "join":
+				return;
+				
 		}					
 	
  }

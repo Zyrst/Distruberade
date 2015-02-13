@@ -15,11 +15,12 @@ public class ClientConnection implements Runnable {
 		
 	private final String m_name;
 	private final InetAddress m_address;
-	private final int m_port;
+	private int m_port;
 	private ObjectOutputStream m_out;
 	private ObjectInputStream m_in;
 	private final ServerSocket m_socket;
 	private final Server m_server;
+	private  Socket m_clientSocket;
 
 	public ClientConnection(String name, InetAddress address, int port, ServerSocket socket, Server server ) 
 	{
@@ -36,23 +37,23 @@ public class ClientConnection implements Runnable {
 	public void acceptClient()
 	{
 		//New socket for a specific client
-		Socket client = null;
+		m_clientSocket = null;
 		try {
-			client = m_socket.accept();
+			m_clientSocket = m_socket.accept();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		//Output stream for client
 		try {
-			m_out = new ObjectOutputStream(client.getOutputStream());
+			m_out = new ObjectOutputStream(m_clientSocket.getOutputStream());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		//And input stream
 		try {
-			m_in = new ObjectInputStream(client.getInputStream());
+			m_in = new ObjectInputStream(m_clientSocket.getInputStream());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -66,7 +67,7 @@ public class ClientConnection implements Runnable {
 	
 	public void sendMessage(JSONObject message) {
 		// TODO: send a message to this client using socket
-				
+		System.out.println("ClientConnect port: " + m_clientSocket.getPort() + "ServerSocket port" + m_socket.getLocalPort());
 		String msg = message.toString();
 		try {
 			m_out.writeObject(msg);
@@ -90,6 +91,7 @@ public class ClientConnection implements Runnable {
 		while(true)
 		{
 			String received = null;
+			System.out.println(Thread.currentThread());
 			try {
 				received = (String) m_in.readObject();
 			} catch (ClassNotFoundException e) {
@@ -109,17 +111,19 @@ public class ClientConnection implements Runnable {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			if(!command.containsKey("command"))
+				command.put("command", "join");
 			//Send it back to main server thread to issue commands
 			if(command.equals("disconencted"))
 			{
 				try {
 					m_socket.close();
+					m_clientSocket.close();
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}
-			
 			m_server.serverCommands(command);
 			
 		}

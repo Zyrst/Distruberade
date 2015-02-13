@@ -46,14 +46,13 @@ public class ServerConnection
 			e1.printStackTrace();
 			System.err.println("Failure to retrieve server");
 		}
-		
 		createSocket();
-		 
     }
     public void createSocket()
     {
     	try{
 			m_socket = new Socket(m_serverAddress, m_serverPort);
+			System.out.println("Made socket with port" + m_socket.getPort());
 		    m_in = new ObjectInputStream(m_socket.getInputStream());
 		    m_out = new ObjectOutputStream(m_socket.getOutputStream());
     	}
@@ -63,7 +62,7 @@ public class ServerConnection
 	        System.exit(1);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
-			System.out.println("We fucked up in creating a socket and streams");
+			System.out.println("Unable to create streams and socket client side");
 		}
     }
     @SuppressWarnings("unchecked")
@@ -92,7 +91,7 @@ public class ServerConnection
 			returnDec = (String) m_in.readObject();
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block
-			System.out.println("not able to read an object");
+			System.out.println("Not able to read an object");
 		}
 
     	JSONParser parser = new JSONParser();
@@ -105,7 +104,7 @@ public class ServerConnection
 		}
     	
     	String decision = obj.get("decision").toString();
-    	
+    	System.out.println("First serverport"+ m_serverPort);
 	    if(decision == "true")
 	    {
 	    	//New socket which we shall communicate over
@@ -116,6 +115,7 @@ public class ServerConnection
 	    	//Create new one
 	    	createSocket();
 	    	System.out.println("Connection established");
+	    	System.out.println("Second port" + m_serverPort);
 	    	return true;
 	    	
 	    }
@@ -132,7 +132,7 @@ public class ServerConnection
     {
     	//Receive a message
     	String received = new String();
-    	
+    	System.out.println(m_socket.getLocalPort());
     	try {
 			received = (String) m_in.readObject();
 		} catch (ClassNotFoundException e) {
@@ -210,22 +210,14 @@ public class ServerConnection
 	    		case "/join":
 	    		{
 	    			System.out.println("Want to join server again");
-	    			try {
-	    				m_socket.close();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						System.out.println("I was unable to close the socket");
-					}
 	    			m_serverPort = handPort;
 	    			createSocket();
-	    			boolean wat = false;
 	    			try {
-						wat = handshake(m_name);
+						handshake(m_name);
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						System.out.println("Dun goofed in handshaking at a rejoin");
 					}
-	    			System.out.println(wat);
 	    			break;
 	    		}
     		}
@@ -240,6 +232,7 @@ public class ServerConnection
     	String msg = obj.toString();
     	//Send message
     	try {
+    		System.out.println("Current port " + m_serverPort);
 			m_out.writeObject(msg);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
