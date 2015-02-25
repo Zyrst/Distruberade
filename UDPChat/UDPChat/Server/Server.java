@@ -14,11 +14,12 @@ import java.net.*;
 //import java.io.*;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Server {
 	
-    private ArrayList<ClientConnection> m_connectedClients = new ArrayList<ClientConnection>();
-    private DatagramSocket m_socket;
+    private static CopyOnWriteArrayList<ClientConnection> m_connectedClients = new CopyOnWriteArrayList<ClientConnection>();
+    private static DatagramSocket m_socket;
 
     public static void main(String[] args){    	
 		if(args.length < 1) {
@@ -39,16 +40,45 @@ public class Server {
 	// TODO: create a socket, attach it to port based on portNumber, and assign it to m_socket
     	try {
 			m_socket = new DatagramSocket(portNumber);
+			//Thread for looking for crashed clients
+			Thread ack = new Thread(new ackThread());
+			ack.start();
 		} catch (SocketException e) {
 			e.printStackTrace();
 			System.err.println("Not able to bind socket");
 		}
     }
+    class ackThread implements Runnable
+    {
+
+    	@Override
+    	public void run() 
+    	{
+    		// TODO Auto-generated method stub
+    		while(true)
+        	{
+    	    	for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
+    			{
+    	    		String ack = "serverAck";
+    			    itr.next().sendMessage(ack, m_socket);
+    			}
+    	    	//Try to remove crashed clients
+    	    	Server.removeCrashed();
+    	    	try {
+    				Thread.sleep(500);
+    			} catch (InterruptedException e) {
+    				// TODO Auto-generated catch block
+    				e.printStackTrace();
+    			}
+        	}
+        }
+    }
+    	
+    
 
     private void listenForClientMessages() 
     {
 		System.out.println("Waiting for client messages... ");
-		Thread thread;
 		do {
 			byte[] buf = new byte[256];
 			DatagramPacket packet = new DatagramPacket(buf, buf.length);
@@ -59,9 +89,6 @@ public class Server {
 			} catch (IOException e) {
 				System.err.println("Not able to receive packet");
 			}
-			//Create new thread for a new message
-			thread = new Thread();
-			thread.start();
 			
 			//Which type of message in buf[0]
 			switch(buf[0])
@@ -203,14 +230,14 @@ public class Server {
 					}
 				}
 			}		
-			removeCrashed();
+			
 			
 		} while (true);
     }
     
     //Public function remove a client
     //Use it with a user client crashed
-    public void removeCrashed()
+    public static void removeCrashed()
     {
     	ClientConnection c;
 		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
@@ -219,11 +246,11 @@ public class Server {
 		    c = itr.next();
 		    int i = c.triedConnect();
 		    String name = c.getName();
-		    if(i > 10 && c.hasName(name) == true)
+		    if(i > 10)
 		    {
 		    	//If tridconnect is over 10 than remove 
 		    	//This might be wrong and a person should be tagged DC instead
-		    	System.out.println("Tried to remove a crashed client");
+		    	System.out.println("Removed crashed client");
 		    	m_connectedClients.remove(c);
 		    	String msg = name + " disconnected";
 		    	broadcast(msg);
@@ -259,7 +286,7 @@ public class Server {
 		return false;
     }
 
-    public void broadcast(String message)
+    public static void broadcast(String message)
     {
 		for(Iterator<ClientConnection> itr = m_connectedClients.iterator(); itr.hasNext();) 
 		{
@@ -273,5 +300,8 @@ public class Server {
 		String one = "ack";
 		return sendPrivateMessage(one, name);
     }
+    
 }
+
+
 

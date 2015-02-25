@@ -65,7 +65,6 @@ public class ClientConnection {
 			    	try {
 			    		
 						socket.send(packet);
-						System.out.println(triesConnecet);
 					} catch (IOException e) {
 						System.err.println("Not able to send message");
 					}

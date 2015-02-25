@@ -120,6 +120,11 @@ public class ServerConnection
     		m_ack = true;
     		return "";
     	}
+    	else if(received.startsWith("serverAck"))
+    	{
+    		boolean reply = replyMessage(m_serverAddress, m_serverPort);
+    		return "";
+    	}
     	else
     	{
     		//Send an ack to server we received a message
@@ -253,6 +258,7 @@ public class ServerConnection
 					System.err.println("Unable to send message");
 				}
 				result = true;
+				System.out.println("Sent ack message");
 				break;
 			 }
 			else{
